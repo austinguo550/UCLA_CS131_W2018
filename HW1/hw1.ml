@@ -7,7 +7,8 @@ let rec subset a b =
 
 (* 2 equal_sets a b *)
 let equal_sets a b =
-    if subset a b && subset b a then true else false ;;
+    subset a b && subset b a
+    ;;
 
 (* 3 set_union a b *)
 let rec set_union a b =
@@ -17,17 +18,13 @@ let rec set_union a b =
     ;;
 
 (* 4 set_intersection a b *)
-let rec set_intersection a b =
-    match a with
-    [] -> []
-    | h::t -> if List.mem h b then h::set_intersection t b else set_intersection t b
+let set_intersection a b =
+    List.filter (fun x -> List.mem x a) b
     ;;
 
 (* 5 set_diff a b *)
-let rec set_diff a b =
-    match a with
-    [] -> []
-    | h::t -> if List.mem h b then set_diff t b else h::set_diff t b
+let set_diff a b =
+    List.filter (fun x -> not (List.mem x b)) a
     ;;
 
 (* 6 computed_fixed_point eq f x *)
@@ -36,11 +33,14 @@ let rec computed_fixed_point eq f x =
     ;;
 
 (* 7 computed_periodic_point eq f p x *)
+(* recursive helper function to check the function value after a period of compositions *)
+let rec period_increase eq f p x value =
+    match p with
+    0 -> if eq x value then value else period_increase eq f p (f x) (f value)
+    | _ -> period_increase eq f (p-1) (f x) value
+    ;;
+
 let computed_periodic_point eq f p x = 
-    let rec period_increase eq f p x value =
-        match p with
-        0 -> if eq x value then value else period_increase eq f p (f x) (f value)
-        | _ -> period_increase eq f (p-1) (f x) value in
     period_increase eq f p x x
     ;;
 
@@ -62,7 +62,32 @@ type ('nonterminal, 'terminal) symbol =
   | T of 'terminal
 
 (* 10 filter_blind_alleys g *)
+
+(* checks to see if the symbol should be added to the grammar *)
+let isValid sym constructed_grammar =
+    match sym with
+    T sym -> true
+    | N sym -> List.exists (fun x -> (fst x) = sym) constructed_grammar
+    ;;
+
+(* iterating through symbols in a right hand side to see which should be added to the grammar *)
+let rec check_symbols current_rhs constructed_grammar =
+    match current_rhs with
+    [] -> true
+    | sym::t -> if isValid sym constructed_grammar then true && (check_symbols t constructed_grammar) else false
+    ;;
+
+let rec build_grammar all_rules constructed_grammar =
+    match all_rules with
+    [] -> constructed_grammar
+    | rule::t -> if (check_symbols (snd rule) constructed_grammar) && (not (subset [rule] constructed_grammar)) then build_grammar t (rule::constructed_grammar) else build_grammar t constructed_grammar
+    ;;
+
+let mask_valid_rules g l =
+    set_intersection (computed_fixed_point (=) (build_grammar (snd g)) []) l
+    ;;
+
+(* build grammar from terminal symbols up, without blind alleys *)
 let filter_blind_alleys g =
-    
-    (fst g, set_intersection (computed_fixed_point (=) (create_terminal_rhs (snd g)) []) (snd g));;
+    (fst g, mask_valid_rules g (snd g))
     ;;
