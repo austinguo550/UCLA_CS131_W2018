@@ -1,3 +1,5 @@
+import java.util.Random;
+
 class UnsafeMemory {
     public static void main(String args[]) {
 		if (args.length < 3)
@@ -6,10 +8,16 @@ class UnsafeMemory {
 			int nThreads = parseInt (args[1], 1, Integer.MAX_VALUE);
 			int nTransitions = parseInt (args[2], 0, Integer.MAX_VALUE);
 			byte maxval = (byte) parseInt (args[3], 0, 127);
-			byte[] value = new byte[args.length - 4];
+			byte[] value;
 
-			for (int i = 4; i < args.length; i++)
-				value[i - 4] = (byte) parseInt (args[i], 0, maxval);
+			if (args.length >= 6) {
+				value = new byte[args.length - 4];
+				for (int i = 4; i < args.length; i++)
+					value[i - 4] = (byte) parseInt (args[i], 0, maxval);
+			}
+			else {
+				value = createArray(maxval);
+			}
 
 			byte[] stateArg = value.clone();
 			State s;
@@ -32,7 +40,7 @@ class UnsafeMemory {
 		} catch (Exception e) {
 			usage(e);
 		}
-    }
+	}
 
     private static void usage(Exception e) {
 		if (e != null)
@@ -96,5 +104,17 @@ class UnsafeMemory {
 	private static void error(String s, long i, long j) {
 		System.err.format("%s (%d != %d)\n", s, i, j);
 		System.exit(1);
-    }
+	}
+
+	private static byte[] createArray(byte maxval) {
+		Random r = new Random();
+		byte[] res = new byte[NUM_ELEMENTS];
+		for (int i = 0; i < NUM_ELEMENTS; i++) {
+			res[i] = (byte) r.nextInt((int) maxval);
+		}
+		return res;
+	}
+
+	// fields
+	private static int NUM_ELEMENTS = 600;
 }
