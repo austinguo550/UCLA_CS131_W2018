@@ -38,7 +38,7 @@ class GetNSet implements State {
         return convertAtomicIntArrToByteArr(this.value);
     }
 
-    public synchronized boolean swap(int i, int j) {
+    public boolean swap(int i, int j) {
         int old_i = value.get(i);
         int old_j = value.get(j);
         if (old_i <= 0 || old_j >= maxval) {
