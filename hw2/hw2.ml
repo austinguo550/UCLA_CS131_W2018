@@ -31,33 +31,40 @@ let rec matcher acceptor derivation frag =
   *)
 
 
+(* Discussion section TA mentioned we will not have to handle infinitely recursing parse structures
+    let rec id_blind_alley f x = 
+    match (f x) with
+    N nonterm -> id_blind_alley f (f x)
+    | T term -> term
+    ;; *)
+
 
 (* iterate through possible rhs parses, spawn fnction to check prefixes against this rhs *)
 (* also derives nonterminals to terminals - downward movement *)
 (* initializes both to recursive functions *)
-let rec matcher start_sym rules rhs_list acceptor derivation frag =
+let rec matcher start_sym rules rhs_list accept derivation frag =
     match rhs_list with
     [] -> None          (* none of the rhs rules returned well *)
     | rhs::tail_rhs_list ->
-        match (match_rhs rules rhs acceptor (derivation@[start_sym, rhs]) frag) with
-        None -> matcher start_sym rules tail_rhs_list acceptor derivation frag      (* check the next rhs *)
+        match (match_rhs rules rhs accept (derivation@[start_sym, rhs]) frag) with
+        None -> matcher start_sym rules tail_rhs_list accept derivation frag      (* check the next rhs *)
         |Some value -> Some value
 
 (* check prefixes against rhs - rightward movement *)
 (* curries matcher with matcher for next element *)
-    and match_rhs rules rhs acceptor derivation frag (* args[] *) =
+    and match_rhs rules rhs accept derivation frag =
     match rhs with
-    [] -> acceptor derivation frag  (* completed derivation of entire rhs, check to see if acceptable *)
+    [] -> accept derivation frag  (* completed derivation of entire rhs, check to see if acceptable *)
     | rhs_sym::tail_rhs ->
         match frag with
         [] -> None                  (* fragment ended before rhs could finish: not valid *)
         | term_sym::tail_frag -> 
             match rhs_sym with
-            T term -> if term = term_sym then (match_rhs rules tail_rhs acceptor derivation tail_frag) (* continue processing *) else None
+            T term -> if term = term_sym then (match_rhs rules tail_rhs accept derivation tail_frag) (* continue processing *) else None
             | N nonterm -> 
-            let curried_acceptor = match_rhs rules rhs acceptor
+            let curried_accept = match_rhs rules tail_rhs accept
             in
-            matcher nonterm rules (rules nonterm) curried_acceptor derivation frag   (* curries matcher with matcher *)
+            matcher nonterm rules (rules nonterm) curried_accept derivation frag   (* curries matcher with matcher *)
 
     ;;
 
@@ -68,7 +75,7 @@ T rhs -> matcher start_sym rules tail_rhs_list acceptor derivation@[] frag      
 *)
 
 (* parse prefix solution *)
-let parse_prefix gram acceptor fragment =
+let parse_prefix gram accept frag =
     (* make generic matcher func *)
     (* curry the matcher for specific terminals *)
     (* append matchers required for this fragment to create big matcher *)
@@ -82,5 +89,5 @@ let parse_prefix gram acceptor fragment =
     let start_production = rules start_sym 
     in
 
-    matcher start_sym rules start_production acceptor [] fragment
+    matcher start_sym rules start_production accept [] frag
     ;;
