@@ -1,0 +1,96 @@
+Convert Grammar
+===============
+
+In order to convert grammar format 1 to grammar format 2, I had to convert a 
+tuple of type ('a * ('a, 'b) symbol list) list to a tuple of type
+'a * ('a -> ('a, 'b) symbol list list).
+Since both grammars have the common 'a element on the left of the tuple, I 
+simply extracted the first of the tuple in grammar format 1 and used that as
+the first of the tuple in grammar 2. The right hand side of the tuple conver-
+sion was much more involved, however. In order to convert this, I made a helper
+function that would allow me to build productions from a given nonterminal
+by recursively iterating through the list of rules in the grammar format 1.
+I then curried the convert grammar function with this function, so that the
+convert_grammar function would return a start symbol in a tuple with a curried
+anonymous function that will call this build_productions function (which
+is the function that ultimately builds up a given nonterminal's right hand side
+production).
+
+This was the first solution I came up with, and as far as I know there are no
+limitations of this approach. Currying the anonymous function was the best opt-
+ionto take because it allows us to use the same anonymous function regardless 
+of the grammar that is passed into it, and derive a certain right hand side 
+rule given a nonterminal. The only problem with this approach is if the 
+grammar is extremely extensive and a given nonterminal has many many possible
+right hand sides, the curried anonymous function in the right hand side of the
+grammar's tuple will build the production for the nonterminal every single 
+time, without saving theresults, which will take a long time.
+
+
+Parse Prefix
+============
+
+To solve parse prefix, I developed an approach that would use a generic matcher
+function that would essentially take each right hand side derivation of a 
+nonterminal and check to see if it matches a prefix in the fragment. For 
+example, given a grammar with 5 rules for the starting symbol, the function 
+would start with the first rule and call a helper function see if the rule 
+matches the prefix, while passing the derivation updated to include the 
+current rule (this is local to the call, and does not update the derivation 
+for future calls in the same function stack). If it does, the matcher will 
+immediately return the state at which its derivation is at and the rest of the
+fragment that has not been processed yet, both of which will have been 
+returned by the call to the helper function. However, if there is no prefix 
+that matches the current rule being analyzed, the matcher will move on to the 
+next rule by making a recursive call to itself with one less rule in the rule 
+list (4 this time). Etc.
+
+The helper function, match_rhs, will check the current rule it is passed by the
+matcher to see if the first symbol of the rule will match the first symbol in 
+the fragment. For example, if both the first symbol of the rule and the first 
+symbol of the fragment are terminals, match_rhs will check to see if the term-
+inals are equal, and if they are, it will continue analyzing the rule and 
+fragment with a recursive call to itself, with one less element in the fragment
+and one less symbol in the rule. If the symbol of the rule is a nonterminal, 
+the function will have to make a derivation to arrive at the terminal that is 
+the symbol in the fragment (or is not). In order to do this, a call must be 
+made to the generic matcher function with the nonterminal symbol that appeared
+in the rule, to check all the right hand side rules for this given nonterminal.
+
+I arrived at this approach after a couple attempts at other approaches. One 
+approach I was originally considering was a 3 helper function approach, where 
+parse_prefix would call a function whose sole job is to generate prefixes 
+from the fragments, using each to make a call to a matcher function to check 
+to see if the prefix matches a given rule. The matcher function would then 
+call the helper function similar to match_rhs to check each element of the 
+fragment and rule to make sure they agreed.
+However, when I went to discuss with Professor Eggert during his office hours, 
+he strongly disapproved of this approach simply because there would be many 
+possible prefixes and many many rules to try on every single prefix: an expon-
+ential number of calls. This approach would be extremely slow. As a result, 
+I flipped my logic, to check rules against prefixes rather than the other way 
+around. This makes for a faster backtracking approach.
+
+My current approach does have limitations, however. Any approach with a blind 
+alley rule, for example a rule that recursively calls itself e.g. Expr -> Expr
+that is tried before other rules, will run infinitely. I was not able to think
+of a fix for this issue, since that raises the problem of knowing when a rule 
+is a blind alley and not just an extremely deep parse tree, so I simply 
+accepted that I would not be able to handle this case before the project 
+deadline. This problem also arises for left-recursive grammar rules, e.g. 
+Expr -> Expr Binop Term, since an expression such as 3 + 4 would try to resolve
+the '3', but would never be able to reach Expr -> Term if this first rule is 
+ahead of it, and an infinite depth first recursion into Expr -> Expr Binop 
+Term will be triggered to try to find the resolution to a terminal. This is 
+not specifically a blind alley rule since there is a possible way to resolve 
+the expression, but our program treats it the same as one.
+
+A fix for this sort of problem is to make sure that left recursive grammar 
+rules happenabsolutely last, so there is a chance for other resolutions to 
+occur first (though this has its own problems, since putting Expr-> Term 
+first may cause 3 + 4 to resolve to just 3since Term -> Num -> 3 is a poss-
+ible resolution). At this point, it simply depends on how you want to define 
+correctness for your grammar parse. Also, a fix for the blind alley rule 
+problem could be to run the filter_blind_alleys function from the previous 
+homework on a grammar of format 1, before using convert_grammr to convert 
+the grammar over to a grammar 2 format.
