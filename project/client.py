@@ -19,14 +19,13 @@ async def tcp_echo_client(loop):
             #     message = message1
             # else:
             #     message = message2
-            message = """     IAMAT     kiwi.cs.ucla.edu 
-+34.068930-118.445127          1520023934.918963997         WHATSAT
-            """#input('')
+            message = input('') #"""     IAMAT     kiwi.cs.ucla.edu 
+#+34.068930-118.445127          1520023934.918963997         WHATSAT"""
             print('Send: %s' % message)
             writer.write(message.encode())
             await writer.drain()
             
-            data = await reader.read(50000)
+            data = await reader.read()
             print('Received: %s' % data.decode())
         except KeyboardInterrupt:
             print('Close the socket')

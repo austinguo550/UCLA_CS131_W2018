@@ -4,39 +4,19 @@ let rec build_productions nonterm grammar =
     [] -> []
     | (curr_nonterm, rhs)::t -> if curr_nonterm = nonterm then rhs::(build_productions nonterm t) else (build_productions nonterm t)
     ;;
+(* val build_productions : 'a -> ('a * 'b) list -> 'b list = <fun> *)
+
 let convert_grammar gram1 =
     ((fst gram1), fun nonterm -> build_productions nonterm (snd gram1))
     ;;
-
+(* val convert_grammar : 'a * ('b * 'c) list -> 'a * ('b -> 'c list) = <fun> *)
 
 
 type ('nonterminal, 'terminal) symbol =
   | N of 'nonterminal
   | T of 'terminal
+(* type ('nonterminal, 'terminal) symbol = N of 'nonterminal | T of 'terminal *)
 
-
-(* helper functions *)
-
-(* old implementation of matcher (from TA)
-(* k should be something else *)
-let rec matcher acceptor derivation frag =
-  match (acceptor derivation frag) with
-    None ->
-        (if k = 0 then None
-        else match frag with
-        | [] -> None
-        | rule::t -> matcher acceptor derivation@[rule] t)
-    | x -> x  (* done matcher has returned a value *)
-  ;;
-  *)
-
-
-(* Discussion section TA mentioned we will not have to handle infinitely recursing parse structures
-    let rec id_blind_alley f x = 
-    match (f x) with
-    N nonterm -> id_blind_alley f (f x)
-    | T term -> term
-    ;; *)
 
 
 (* iterate through possible rhs parses, spawn fnction to check prefixes against this rhs *)
@@ -49,6 +29,14 @@ let rec matcher start_sym rules rhs_list accept derivation frag =
         match (match_rhs rules rhs accept (derivation@[start_sym, rhs]) frag) with
         None -> matcher start_sym rules tail_rhs_list accept derivation frag      (* check the next rhs *)
         |Some value -> Some value
+(* val matcher :
+  'a ->
+  ('a -> ('a, 'b) symbol list list) ->
+  ('a, 'b) symbol list list ->
+  (('a * ('a, 'b) symbol list) list -> 'b list -> 'c option) ->
+  ('a * ('a, 'b) symbol list) list -> 'b list -> 'c option = <fun> *)
+
+
 
 (* check prefixes against rhs - rightward movement *)
 (* curries matcher with matcher for next element *)
@@ -65,8 +53,14 @@ let rec matcher start_sym rules rhs_list accept derivation frag =
             let curried_accept = match_rhs rules tail_rhs accept
             in
             matcher nonterm rules (rules nonterm) curried_accept derivation frag   (* curries matcher with matcher *)
-
     ;;
+(* val match_rhs :
+  ('a -> ('a, 'b) symbol list list) ->
+  ('a, 'b) symbol list ->
+  (('a * ('a, 'b) symbol list) list -> 'b list -> 'c option) ->
+  ('a * ('a, 'b) symbol list) list -> 'b list -> 'c option = <fun> *)
+
+
 
 
 (* code to match terminals
@@ -80,7 +74,6 @@ let parse_prefix gram accept frag =
     (* curry the matcher for specific terminals *)
     (* append matchers required for this fragment to create big matcher *)
     (* return big matcher *)
-    
 
     let start_sym = fst gram
     in
@@ -91,3 +84,7 @@ let parse_prefix gram accept frag =
 
     matcher start_sym rules start_production accept [] frag
     ;;
+(* val parse_prefix :
+  'a * ('a -> ('a, 'b) symbol list list) ->
+  (('a * ('a, 'b) symbol list) list -> 'b list -> 'c option) ->
+  'b list -> 'c option = <fun> *)
