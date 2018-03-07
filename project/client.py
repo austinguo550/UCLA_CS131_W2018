@@ -9,20 +9,28 @@ import sys
 
 async def tcp_echo_client(loop):
     reader, writer = await asyncio.open_connection('127.0.0.1', 8888, loop=loop)
-    try:
-        message = 'IAMAT kiwi.cs.ucla.edu +34.068930-118.445127 1520023934.918963997' #\nWHATSAT kiwi.cs.ucla.edu 10 1'
-        print('Send: %s' % message)
-        writer.write(message.encode())
-        await writer.drain()
-        writer.write_eof()
-        
-        data = await reader.read()
-        print('%s' % data.decode())
-    except KeyboardInterrupt:
-        print('Close the socket')
-        writer.close()
-        return
-        
+    while 1:
+        try:
+            # option = input('')
+            # message1 = 'IAMAT kiwi.cs.ucla.edu +34.068930-118.445127 %f' % time.time()
+            # message2 = 'WHATSAT kiwi.cs.ucla.edu 10 1'
+            # message = ''
+            # if option == '1':
+            #     message = message1
+            # else:
+            #     message = message2
+            message = input('') #"""     IAMAT     kiwi.cs.ucla.edu 
+#+34.068930-118.445127          1520023934.918963997         WHATSAT"""
+            print('Send: %s' % message)
+            writer.write(message.encode())
+            await writer.drain()
+            
+            data = await reader.read()
+            print('Received: %s' % data.decode())
+        except KeyboardInterrupt:
+            print('Close the socket')
+            writer.close()
+            return
     
 
 # message = input('') + ' ' + str(time.time())
