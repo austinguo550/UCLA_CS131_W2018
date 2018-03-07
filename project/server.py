@@ -9,13 +9,17 @@ import json, pprint
 serverIDs = ['Goloman', 'Hands', 'Holiday', 'Welsh', 'Wilkes']
 valid_commands = ['IAMAT', 'WHATSAT']
 clients = {}    # client_id : [time_diff, latlong, time_sent]
-tasks = {}
+tasks = {}      # task : (reader, writer)
 
 log = 'log.txt'
 
 # regex used often:
 # valid command field
 valid_field = re.compile(r'^\S+$')
+iso_latlong = re.compile(r'^[+-][0-9]+.[0-9]+[+-][0-9]+.[0-9]+$')
+unix_time = re.compile(r'^[0-9]+.[0-9]+$')
+int_matcher = re.compile(r'^[0-9]+$')
+time_diff_re = re.compile(r'^[+-][0-9]+.[0-9]+$')
 
 def main():
     # setup
@@ -86,14 +90,44 @@ async def handle_client(reader, writer):
 
     # compile regex to squeeze spaces
     squeeze_space = re.compile(r'\s+')
-    buf = []
-    while not reader.at_eof():        # continue until client eof
-        print(buf)
-        data = await reader.read(100)
-        buf += list(filter(lambda x: len(x) > 0, squeeze_space.sub(r' ', data.decode()).strip().split(' ')))   # sanitize and split input, then sanitize split
-        # greedily process incoming messages
-        if await contains_message(buf):
-            buf = await process_message(buf, writer)      # every time you process some of the data, remove part you processed
+
+    data = await reader.read()
+    time_received = time.time()
+    # sanitize and split input, then sanitize split
+    buf = list(filter(lambda x: len(x) > 0, squeeze_space.sub(r' ', data.decode()).strip().split(' ')))
+    print(buf)
+
+    #process all messages now
+    while len(buf) > 0:
+        command = buf[0]
+        if command in valid_commands:
+            if await validate_command(command, buf[1:4]):
+                input_command = '%s %s' % (command, ' '.join(buf[1:4]))
+                res = await handle_command(command, buf[1:4], time_received)
+
+                buf = buf[4:]
+        elif command == 'AT':           # for servers
+            if await validate_command(command, buf[1:5]):
+                input_command = '%s %s' % (command, ' '.join(buf[1:5]))
+                res = await handle_command(command, buf[1:5], time_received)
+
+                buf = buf[5:]
+        else:       # invalid command
+            input_command = '%s' % ' '.join(buf)
+            res = '? %s' % ' '.join(buf)   # print the invalid message
+            
+            buf = []        # stop processing: invalid command reached
+    
+        # log the input
+        f.write('%s\n' % input_command)   # input will always lack ending \n
+        # log the output
+        f.write('%s' % res)               # output will always have the ending \n (handle_command returns this)
+        # write back to the client
+        writer.write(res.encode())
+        await writer.drain()
+
+    writer.write_eof()      # close server write end of transport
+
 
 
 ''' Takes in a message array and returns a response
@@ -101,24 +135,27 @@ async def handle_client(reader, writer):
 *   input:  time_received   - time command was received
 *   output: res             - response in string format
 '''
-async def handle_command(message_arr, time_received):
+async def handle_command(command, message_arr, time_received):
     res = ''
-    command = message_arr[0]
     if command == 'IAMAT':
-        client_id = message_arr[1]
-        latlong = message_arr[2]
-        time_sent = float(message_arr[3])
+        client_id = message_arr[0]
+        latlong = message_arr[1]
+        time_sent = float(message_arr[2])
+        # make the time diff
         time_diff = time_received - time_sent
         if time_diff < 0:
             time_diff = '-%f' %time_diff
         else:
             time_diff = '+%f' %time_diff
+
         clients[client_id] = [time_diff, latlong, time_sent]   # might be time_received instead of time.time() [time server sent response]
-        res = 'AT %s %s %s %s %f' % (server_id, time_diff, client_id, latlong, time_sent)
+
+        res = 'AT %s %s %s %s %f\n' % (server_id, time_diff, client_id, latlong, time_sent)
+
     elif command == 'WHATSAT':
-        client_id = message_arr[1]
-        radius = int(message_arr[2])    # int or float?
-        number_of_results = int(message_arr[3])
+        client_id = message_arr[0]
+        radius = int(message_arr[1])    # int or float?
+        number_of_results = int(message_arr[2])
         time_diff, latlong, time_sent = clients[client_id]
 
         # communicate with Google Places API
@@ -136,6 +173,7 @@ async def handle_command(message_arr, time_received):
             api_response = json.dumps(json_response, indent=3)
 
         res = 'AT %s %s %s %s %f\n%s\n\n' % (server_id, time_diff, client_id, latlong, time_sent, api_response)
+
     return res
 
 
@@ -151,78 +189,46 @@ async def fetch(session, url):
                                 # or should i use .text() ? eggert says needs to be "exact format google returns, with modification of newlines and number of results..."
 
 
-''' Checks to see if buffer potentially has a message
-*   input:  buf             - buffer array
-*   output: bool            - does the buffer have a message in it
-'''
-async def contains_message(buf):
-    if len(buf) == 0:
-        return False
-
-    if buf[0] in valid_commands:    # client commands
-        if len(buf) >= 4:
-            return True
-        return False
-    elif buf[0] == 'AT':            # server commands
-        if len(buf) >= 5:
-            return True
-        return False
-    # currently processing 4 commands at a time
-    if len(buf) >= 4:               # invalid commands
-        return True
-    return False
-
-
-''' Process the message inside the buffer
-*   input:  buf             - buffer array
-*   input:  writer          - StreamWriter responses
-*   output: remainder       - Remainder of the buffer
-'''
-async def process_message(buf, writer):
-    time_received = time.time()
-
-    # validate message
-    message_arr = buf[:4]
-    if not await valid_message(message_arr):
-        print('? %r' % ' '.join(message_arr))   # print the invalid message
-        return buf[4:]                          # throw away the 4 fields just processed
-    
-    # log the input
-    f.write(' '.join(message_arr))
-
-    res = await handle_command(message_arr, time_received)
-    print(res)
-    writer.write(res.encode())
-    await writer.drain()
-
-    # log the output
-    f.write(res)
-
-    return buf[4:]
-
-
 ''' Checks to see if the message is valid format
 *   input:  message_arr     - message in array format
 *   output: bool            - boolean if the message arr is a valid command with correct field format
 '''
-async def valid_message(message_arr):
-    if (message_arr[0] == 'AT' and len(message_arr) != 5) or len(message_arr) != 4:
-        return False
-    command = message_arr[0]
-    if command not in valid_commands:
-        return False
+async def validate_command(command, rest):
 
     # all fields need to have no whitespace
-    if not all([valid_field.match(x) for x in message_arr]):
+    if not all([valid_field.match(x) for x in rest]):
         return False
 
     # other validation checks?
-    if command == 'WHATSAT':
-        client_id = message_arr[1]
-        radius = int(message_arr[2])
-        number_of_results = int(message_arr[3])
-        if radius > 50 or radius < 0 or client_id not in clients or number_of_results > 20 or number_of_results < 0:
+    if command == 'IAMAT':
+        latlong = rest[1]
+        time_sent = rest[2]
+        if not (iso_latlong.match(latlong) and unix_time.match(time_sent)):
             return False
+    elif command == 'WHATSAT':
+        client_id = rest[0]
+        radius = rest[1]
+        number_of_results = rest[2]
+
+        # check regex
+        if not (int_matcher.match(radius) and int_matcher.match(number_of_results)):
+            return False
+
+        radius = int(radius)
+        number_of_results = int(number_of_results)
+
+        if (radius > 50 or radius < 0) or (client_id not in clients) or (number_of_results > 20 or number_of_results < 0):
+            return False
+    elif command == 'AT':           # for servers
+        time_diff = rest[1]
+        latlong = rest[3]
+        time_sent = rest[4]
+
+        if not (time_diff_re.match(time_diff) and iso_latlong.match(latlong) and unix_time.match(time_sent)):
+            return False
+    else:
+        return False
+
     return True
 
 
