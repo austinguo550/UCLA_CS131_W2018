@@ -8,7 +8,7 @@ import sys
 #     sys.exit(1)
 
 async def tcp_echo_client(loop):
-    reader, writer = await asyncio.open_connection('127.0.0.1', 8888, loop=loop)
+    reader, writer = await asyncio.open_connection('127.0.0.1', 19560, loop=loop)
     try:
         message = 'IAMAT kiwi.cs.ucla.edu +34.068930-118.445127 1520023934.918963997' #\nWHATSAT kiwi.cs.ucla.edu 10 1'
         print('Send: %s' % message)
