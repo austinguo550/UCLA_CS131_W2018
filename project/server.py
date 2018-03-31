@@ -4,13 +4,16 @@ import os, sys, time, re
 import asyncio
 import aiohttp
 import async_timeout
-import json, pprint
-import threading
+import json
 
 serverIDs = ['Goloman', 'Hands', 'Holiday', 'Welsh', 'Wilkes']
 valid_commands = ['IAMAT', 'WHATSAT']       # valid commands from clients
 
-clients = {}    # client_id : [time_diff, latlong, time_sent]
+clients = {}    # client_id : [server_id, time_diff, latlong, time_sent]
+SERVER_ID = 0
+TIME_DIFF = 1
+LATLONG = 2
+TIME_SENT = 3
 tasks = {}      # task : (reader, writer)
 
 # directed server communication graph
@@ -22,15 +25,6 @@ communications_graph = {
     'Welsh': ['Holiday'],
 }
 
-# which servers has this server sent data to recently
-recent_communications = {
-    'Goloman': 0.0,
-    'Hands': 0.0,
-    'Holiday': 0.0,
-    'Wilkes': 0.0,
-    'Welsh': 0.0,
-}
-
 ports = {
     'Goloman': 19560,
     'Hands': 19561,
@@ -38,25 +32,6 @@ ports = {
     'Wilkes': 19563,
     'Welsh': 19564,
 }
-
-readers = {
-    'Goloman': None,
-    'Hands': None,
-    'Holiday': None,
-    'Wilkes': None,
-    'Welsh': None,
-}
-
-writers = {
-    'Goloman': None,
-    'Hands': None,
-    'Holiday': None,
-    'Wilkes': None,
-    'Welsh': None,
-}
-
-# logfile name
-log = 'log.txt'
 
 # regex used often:
 valid_field = re.compile(r'^\S+$')
@@ -86,24 +61,22 @@ def main():
         print('Invalid server ID')
         sys.exit(1)
     print(server_id)
+
+    # logfile name
+    global log
+    log = '%s_log.txt' % server_id
     
     ####################
     ## core functionality
 
     # open logfile to write to
     global f
-    f = open(log, 'w')
+    f = open(log, 'a+')
 
     # get event loop
+    global loop
     loop = asyncio.get_event_loop()
-
-    # open connections to other servers
-    connect_to_servers = asyncio.ensure_future(tcp_server_client(loop))
-    def finish_connecting(task):
-        print('Finished connecting to servers {}'.format(communications_graph[server_id]))
-        writers['Hands'].write('Hello World!'.encode())
-        writers['Hands'].close()
-    connect_to_servers.add_done_callback(finish_connecting)
+    loop.set_debug(True)        # TODO just for testing
 
     # start loop to accept clients
     coro = asyncio.start_server(accept_client, '127.0.0.1', ports[server_id], loop=loop)
@@ -115,6 +88,7 @@ def main():
         loop.run_forever()
     except KeyboardInterrupt:
         print('Closing server...')
+        f.close()
 
     # Close the server if the server specifically cancels itself (KeyboardInterrupt)
     server.close()
@@ -133,12 +107,17 @@ def main():
 
 ## TODO: need to fill in which exception want to catch
 async def server_write_transport_stream(writer, msg):
-    await write_transport_stream
-    writer.close()
-    # reopen the connection with a different read socket
+    if msg == None:
+        return
+
+    await write_transport_stream(writer, msg)
+    writer.close()  # close connection after all server writes
 
 # message is str, not byte encoded
 async def write_transport_stream(writer, msg):
+    if msg == None:
+        return
+
     try:
         writer.write(msg.encode())
         await writer.drain()
@@ -146,6 +125,9 @@ async def write_transport_stream(writer, msg):
         print('IOError in write_transport_stream: %s' % msg)
 
 async def write_to_log(msg):
+    if msg == None:
+        return
+        
     try:
         f.write(msg)
     except:
@@ -162,14 +144,19 @@ async def write_to_log(msg):
 
 
 # currently gives errors if can't connect to all the servers
-async def tcp_server_client(loop):
+async def tcp_server_client(msg, dont_send):
     for server in communications_graph[server_id]:
-        temp_r, temp_w = await asyncio.open_connection('127.0.0.1', ports[server], loop=loop)
-        global readers
-        global writers
-        readers[server] = temp_r
-        writers[server] = temp_w
-
+        if server in dont_send:
+            continue
+        try:
+            reader, writer = await asyncio.open_connection('127.0.0.1', ports[server], loop=loop)
+            await write_to_log('Opened connection with %s\n' % server)
+            await server_write_transport_stream(writer, msg)
+            await write_to_log('Propagated message: %s\n' % msg)
+            await write_to_log('Dropped connection with %s\n' % server)
+        except:
+            print('Error while connecting and propagating message to server %s' % server)
+            await write_to_log('Error while connecting and propagating message to server %s: Dropped connection with %s\n' % (server, server))
 
 
 
@@ -190,11 +177,8 @@ def accept_client(reader, writer):
     tasks[task] = (reader, writer)
 
     def close_client(task):
-        if task in tasks:
-            print('Closing client')
-            del tasks[task]
-        else:   # is server
-            print('Closing server')
+        print('Closing client')
+        del tasks[task]
         writer.close()
     
     # if the task is completed, close the client
@@ -208,42 +192,44 @@ def accept_client(reader, writer):
 async def handle_client(reader, writer):
     # handle clients and servers separately
 
-    data = await reader.read()
+    while not reader.at_eof():
+        data = await reader.readline()
+        # sanitize and split input, then sanitize split
+        buf = list(filter(lambda x: len(x) > 0, squeeze_space.sub(r' ', data.decode()).strip().split(' ')))
+        # greedily process input messages, if a message exists
+        await process_buf(writer, buf)
+        print(buf)
+
+
+# doesn't return anything
+async def process_buf(writer, buf):
     time_received = time.time()
-    # sanitize and split input, then sanitize split
-    buf = list(filter(lambda x: len(x) > 0, squeeze_space.sub(r' ', data.decode()).strip().split(' ')))
-    print(buf)
 
-    #process all messages now
-    while len(buf) > 0:
-        command = buf[0]
-        if command in valid_commands:
-            if await validate_command(command, buf[1:4]):
-                input_command = '%s %s' % (command, ' '.join(buf[1:4]))
-                res = await handle_command(command, buf[1:4], time_received)
+    print('Processing {}'.format(buf))
 
-                buf = buf[4:]
-        elif command == 'AT':           # for servers
-            if await validate_command(command, buf[1:5]):
-                input_command = '%s %s' % (command, ' '.join(buf[1:5]))
-                res = await handle_command(command, buf[1:5], time_received)
+    # check if message might exist
+    if len(buf) < 4:
+        return
 
-                buf = buf[5:]
-        else:       # invalid command
+    command = buf[0]
+    if command in valid_commands or command == 'AT':
+        if await validate_command(command, buf[1:]):
+            input_command = '%s %s' % (command, ' '.join(buf[1:]))
+            res = await handle_command(command, buf[1:], time_received)
+        else:
             input_command = '%s' % ' '.join(buf)
             res = '? %s' % ' '.join(buf)   # print the invalid message
-            
-            buf = []        # stop processing: invalid command reached
-    
-        # log the input
-        await write_to_log('%s\n' % input_command)    # input will always lack ending \n
-        # log the output
-        await write_to_log('%s' % res)               # output will always have the ending \n (handle_command returns this)
-        # write back to the client
-        await write_transport_stream(writer, res)
-        
 
-    writer.write_eof()      # close server write end of transport
+    else:       # invalid command
+        input_command = '%s' % ' '.join(buf)
+        res = '? %s' % ' '.join(buf)   # print the invalid message
+
+    # write back to the client
+    await write_transport_stream(writer, res)
+    # log the input
+    await write_to_log('Received: %s\n' % input_command)      # input will always end in \n, print representation
+    # log the output
+    await write_to_log('Sent: %s\n' % res)                  # output will always have the ending \n (handle_command returns this), print representation
 
 
 
@@ -253,27 +239,44 @@ async def handle_client(reader, writer):
 *   output: res             - response in string format
 '''
 async def handle_command(command, message_arr, time_received):
-    res = ''
+    res = None
     if command == 'IAMAT':
         client_id = message_arr[0]
         latlong = message_arr[1]
-        time_sent = float(message_arr[2])
+        time_sent = message_arr[2]
         # make the time diff
-        time_diff = time_received - time_sent
+        time_diff = time_received - float(time_sent)
         if time_diff < 0:
             time_diff = '-%f' %time_diff
         else:
             time_diff = '+%f' %time_diff
 
-        clients[client_id] = [time_diff, latlong, time_sent]   # might be time_received instead of time.time() [time server sent response]
+        clients[client_id] = [server_id, time_diff, latlong, time_sent]   # might be time_received instead of time.time() [time server sent response]
 
-        res = 'AT %s %s %s %s %f\n' % (server_id, time_diff, client_id, latlong, time_sent)
+        res = 'AT %s %s %s %s %s\n' % (server_id, time_diff, client_id, latlong, time_sent)
+        propagated_msg = 'AT %s %s %s %s %s %s\n' % (server_id, time_diff, client_id, latlong, time_sent, server_id)
+
+        dont_send = [] # don't send to the server that sent this message, or the one the flood started from: but I am both
+
+        # propagate information to other servers
+        # open connections to other servers
+        # send message to other servers
+        # close connection to other servers
+        connect_to_servers = asyncio.ensure_future(tcp_server_client(propagated_msg, dont_send))
+        def finish_connecting(task):
+            print('Propagated messages to servers {}'.format(communications_graph[server_id]))
+        connect_to_servers.add_done_callback(finish_connecting)
+
 
     elif command == 'WHATSAT':
         client_id = message_arr[0]
         radius = int(message_arr[1])    # int or float?
         number_of_results = int(message_arr[2])
-        time_diff, latlong, time_sent = clients[client_id]
+
+        if client_id not in clients:
+            return None
+
+        temp_server, time_diff, latlong, time_sent = clients[client_id]
 
         # communicate with Google Places API
         latlong_arr = list(filter(lambda x: len(x) > 0, re.split(r'[+-]', latlong)))
@@ -289,16 +292,38 @@ async def handle_command(command, message_arr, time_received):
             # print(json_response)
             api_response = json.dumps(json_response, indent=3)
 
-        res = 'AT %s %s %s %s %f\n%s\n\n' % (server_id, time_diff, client_id, latlong, time_sent, api_response)
+        res = 'AT %s %s %s %s %s\n%s\n\n' % (temp_server, time_diff, client_id, latlong, time_sent, api_response)
 
     elif command == 'AT':
-        server_client = rest[0]
-        time_diff = rest[1]
-        client_id = rest[2]
-        latlong = rest[3]
-        time_sent = float(rest[4])
+        original_server = message_arr[0]
+        time_diff = message_arr[1]
+        client_id = message_arr[2]
+        latlong = message_arr[3]
+        time_sent = message_arr[4]
+        client_server = message_arr[5]
 
-        # check to see if i already communicated with this server
+        print('Opened connection with %s\n' % client_server)
+        print('Dropped connection with %s after receiving message ->\n' % client_server)
+        await write_to_log('Opened connection with %s\n' % client_server)
+        await write_to_log('Dropped connection with %s after receiving message ->\n' % client_server)
+
+        # check to see if client entry exists or was not already updated: if not, create it and propagate
+        if client_id not in clients or float(time_sent) > float(clients[client_id][TIME_SENT]):
+            # update current server information
+            clients[client_id] = [original_server, time_diff, latlong, time_sent]   # might be time_received instead of time.time() [time server sent response]
+            # propagate information to other servers
+            # open connections to other servers
+            # send message to other servers
+            # close connection to other servers
+            # propagated msg
+            propagated_msg = '%s %s %s\n' % (command, ' '.join(message_arr[:-1]), server_id)    # always propagates the original server the client communicated with
+            dont_send = [client_server, original_server]  # don't send to the server that sent this message, or the one the flood started from
+            connect_to_servers = asyncio.ensure_future(tcp_server_client(propagated_msg, dont_send))
+            def finish_connecting(task):
+                print('Propagated messages to servers {}'.format(communications_graph[server_id]))
+            connect_to_servers.add_done_callback(finish_connecting)
+        else:
+            return None # otherwise don't propagate
 
     return res
 
@@ -327,12 +352,16 @@ async def validate_command(command, rest):
 
     # other validation checks?
     if command == 'IAMAT':
+        if len(rest) != 3:
+            return False
         latlong = rest[1]
         time_sent = rest[2]
         if not (iso_latlong.match(latlong) and unix_time.match(time_sent)):
             return False
 
     elif command == 'WHATSAT':
+        if len(rest) != 3:
+            return False
         client_id = rest[0]
         radius = rest[1]
         number_of_results = rest[2]
@@ -346,8 +375,13 @@ async def validate_command(command, rest):
 
         if (radius > 50 or radius < 0) or (client_id not in clients) or (number_of_results > 20 or number_of_results < 0):
             return False
+
+        if client_id not in clients:
+            return False
         
-    elif command == 'AT':           # for servers
+    elif command == 'AT':           # for servers # will probably change
+        if len(rest) != 6:
+            return False
         time_diff = rest[1]
         latlong = rest[3]
         time_sent = rest[4]
