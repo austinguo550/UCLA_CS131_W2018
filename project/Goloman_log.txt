@@ -1,0 +1,6 @@
+Opened connection with Holiday
+Dropped connection with Holiday after receiving message ->
+Received: AT Welsh +706113.744629 kiwi.cs.ucla.edu +34.068930-118.445127 1520023935.918963997 Holiday
+Sent: None
+Error while connecting and propagating message to server Hands: Dropped connection with Hands
+Error while connecting and propagating message to server Wilkes: Dropped connection with Wilkes

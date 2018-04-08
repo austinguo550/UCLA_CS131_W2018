@@ -1,0 +1,100 @@
+Received: IAMAT kiwi.cs.ucla.edu +34.068930-118.445127 1520023935.918963997
+Sent: AT Welsh +645886.629447 kiwi.cs.ucla.edu +34.068930-118.445127 1520023935.918963997
+
+Error while connecting and propagating message to server Holiday: Dropped connection with Holiday
+Received: WHATSAT kiwi.cs.ucla.edu 10 5
+Sent: AT Welsh +645886.629447 kiwi.cs.ucla.edu +34.068930-118.445127 1520023935.918963997
+{
+   "html_attributions": [],
+   "results": [
+      {
+         "geometry": {
+            "location": {
+               "lat": 33.963232,
+               "lng": 118.275198
+            },
+            "viewport": {
+               "northeast": {
+                  "lat": 34.0904474,
+                  "lng": 118.4832788
+               },
+               "southwest": {
+                  "lat": 33.8059942,
+                  "lng": 118.1024373
+               }
+            }
+         },
+         "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/geocode-71.png",
+         "id": "cc4716fb43e8257686fb7422068fbc6a91700c76",
+         "name": "Suqian",
+         "photos": [
+            {
+               "height": 1360,
+               "html_attributions": [
+                  "<a href=\"https://maps.google.com/maps/contrib/105406851697535616726/photos\">Diving Catalina</a>"
+               ],
+               "photo_reference": "CmRaAAAAmYfClBPVX4T5hOx2q195nySDgGX18XqaqCAZ2kLluMn8yzewcBg9p5ohq2l-XJMr9E40fV0JjCwPLlRHDt1C6zOCbreKU1s71c66bOr9mQs-oxyvVdQ4hX5N7tU98ooHEhD4OpDuU2x1ctWKIgBxPGKRGhRv1llGxeJYFppZz4mWMYJ00p_WQQ",
+               "width": 2048
+            }
+         ],
+         "place_id": "ChIJ618ILovdxzUREdjhxZd3nWw",
+         "reference": "CmRbAAAAFqdrIDSkOFHJ_9fwgux4tAPLZhjNWJY25_ORte1xh9_yP3NGLug2VYB_xSMQDgd8Z2EvbuRs5nM6YiCqDvqTyQqt3IEm8cgM81PnAWouE2E9j3bszvGdz4XRh0hWkxmIEhBGQ4rK7-Xx4RsM-OP3oHe8GhTi31p-U86CpSjrvGmFSaDM9Tg-0w",
+         "scope": "GOOGLE",
+         "types": [
+            "locality",
+            "political"
+         ],
+         "vicinity": "Suqian"
+      },
+      {
+         "geometry": {
+            "location": {
+               "lat": 33.946822,
+               "lng": 118.330782
+            },
+            "viewport": {
+               "northeast": {
+                  "lat": 34.1710627,
+                  "lng": 118.5992262
+               },
+               "southwest": {
+                  "lat": 33.7985975,
+                  "lng": 117.9944062
+               }
+            }
+         },
+         "icon": "https://maps.gstatic.com/mapfiles/place_api/icons/geocode-71.png",
+         "id": "40e95f900ad54b8556ae0f125165db92968f0e03",
+         "name": "Suyu",
+         "photos": [
+            {
+               "height": 1920,
+               "html_attributions": [
+                  "<a href=\"https://maps.google.com/maps/contrib/100532057116019971665/photos\">Anthony King</a>"
+               ],
+               "photo_reference": "CmRaAAAALisBOUzxTj5sr-2fOFSYSXqB3EVLhlqMoEwgVFg43N8ywoY7Txo-VONUVkQYVchBiyQcKqzX5Q95XzLRZvM7uPGyb7vRhWdEZGraQNz5ejkz8WDtn2uLWtHe9I4EF9TvEhDSxBhGf1Ole0hVTvofYmfJGhRI4R9DJEeNQCIqnt0HvomQ5cl2kQ",
+               "width": 1080
+            }
+         ],
+         "place_id": "ChIJDftaQfjdxzUR_rrJGNRHftk",
+         "reference": "CmRbAAAA4zW9fnGTY4fF2qX0ERpv8hyFcEarvYYOFQfSfX-juYNI14vLvysk0X2WkMqnYRNVTCl8Y6-PQgMNr6C0J0sq4QX4s6FVRV0C4Qnzix7wKigXTiZmG2pyv3MXODCJd_pqEhAWzTPKmGuuPPAssVIpt7BgGhT6IYbHvDdIJBODlCKIkujrYtm56A",
+         "scope": "GOOGLE",
+         "types": [
+            "sublocality_level_1",
+            "sublocality",
+            "political"
+         ],
+         "vicinity": "Suyu"
+      }
+   ],
+   "status": "OK"
+}
+
+
+Received: IAMAT kiwi.cs.ucla.edu +34.068930-118.445127 1520023935.918963997
+Sent: AT Welsh +706113.744629 kiwi.cs.ucla.edu +34.068930-118.445127 1520023935.918963997
+
+Opened connection with Holiday
+Propagated message: AT Welsh +706113.744629 kiwi.cs.ucla.edu +34.068930-118.445127 1520023935.918963997 Welsh
+
+Dropped connection with Holiday

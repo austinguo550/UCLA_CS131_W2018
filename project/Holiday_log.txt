@@ -1,0 +1,24 @@
+Opened connection with Welsh
+Dropped connection with Welsh after receiving message ->
+Received: AT Welsh +627897.107966 kiwi.cs.ucla.edu +34.068930-118.445127 1520023934.918963997 Welsh
+Sent: None
+Opened connection with Goloman
+Propagated message: AT Welsh +627897.107966 kiwi.cs.ucla.edu +34.068930-118.445127 1520023934.918963997 Holiday
+
+Dropped connection with Goloman
+Opened connection with Welsh
+Dropped connection with Welsh after receiving message ->
+Received: AT Welsh +627928.337277 kiwi.cs.ucla.edu +34.068930-118.445127 1520023935.918963997 Welsh
+Sent: None
+Opened connection with Goloman
+Propagated message: AT Welsh +627928.337277 kiwi.cs.ucla.edu +34.068930-118.445127 1520023935.918963997 Holiday
+
+Dropped connection with Goloman
+Opened connection with Welsh
+Dropped connection with Welsh after receiving message ->
+Received: AT Welsh +706113.744629 kiwi.cs.ucla.edu +34.068930-118.445127 1520023935.918963997 Welsh
+Sent: None
+Opened connection with Goloman
+Propagated message: AT Welsh +706113.744629 kiwi.cs.ucla.edu +34.068930-118.445127 1520023935.918963997 Holiday
+
+Dropped connection with Goloman
